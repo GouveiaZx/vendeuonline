@@ -12,7 +12,7 @@ datasource db {
 
 // Modelo de usuário base
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id
   name      String
   email     String   @unique
   password  String
@@ -38,7 +38,7 @@ model User {
 }
 
 model Buyer {
-  id     String @id @default(cuid())
+  id     String @id
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -50,7 +50,7 @@ model Buyer {
 }
 
 model Seller {
-  id              String      @id @default(cuid())
+  id              String      @id
   userId          String      @unique
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   storeName       String
@@ -74,7 +74,7 @@ model Seller {
 }
 
 model Admin {
-  id          String   @id @default(cuid())
+  id          String   @id
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   permissions String[]

@@ -29,8 +29,8 @@ const createStoreSchema = z.object({
 })
 
 const querySchema = z.object({
-  page: z.string().transform(Number).default(() => 1),
-  limit: z.string().transform(Number).default(() => 12),
+  page: z.string().transform(Number).default('1'),
+  limit: z.string().transform(Number).default('12'),
   search: z.string().optional(),
   category: z.string().optional(),
   city: z.string().optional(),
@@ -197,7 +197,7 @@ async function createStoreHandlerBase(request: AuthenticatedRequest) {
         slug,
         sellerId: user.seller.id,
         socialMedia: validatedData.socialMedia || {}
-      },
+      } as any,
       include: {
         seller: {
           select: {

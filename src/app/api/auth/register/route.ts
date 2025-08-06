@@ -53,7 +53,7 @@ async function registerHandler(request: NextRequest) {
         type: validatedData.type,
         city: validatedData.city,
         state: validatedData.state
-      },
+      } as any,
       include: {
         buyer: true,
         seller: {
@@ -70,7 +70,7 @@ async function registerHandler(request: NextRequest) {
       await prisma.buyer.create({
         data: {
           userId: user.id
-        }
+        } as any
       })
     } else if (validatedData.type === 'SELLER') {
       if (!validatedData.storeName || !validatedData.storeDescription || 
@@ -97,7 +97,7 @@ async function registerHandler(request: NextRequest) {
           address: validatedData.address,
           zipCode: validatedData.zipCode,
           category: validatedData.category
-        }
+        } as any
       })
 
       // Criar loja

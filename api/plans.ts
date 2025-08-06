@@ -1,8 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../src/lib/prisma.js'
 import jwt from 'jsonwebtoken'
 
 const planSchema = z.object({

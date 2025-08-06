@@ -1,8 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../src/lib/prisma.js'
 import jwt from 'jsonwebtoken'
 
 const createStoreSchema = z.object({
@@ -233,13 +231,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Criar loja
+      const { socialMedia, ...storeData } = validatedData
       const store = await prisma.store.create({
         data: {
-          ...validatedData,
+          ...storeData,
           slug,
           sellerId: user.seller.id,
-          socialMedia: validatedData.socialMedia || {}
-        },
+          socialMedia: socialMedia || {}
+        } as any,
         include: {
           seller: {
             select: {

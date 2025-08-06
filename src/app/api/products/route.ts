@@ -35,8 +35,8 @@ const createProductSchema = z.object({
 })
 
 const querySchema = z.object({
-  page: z.string().transform(Number).default(1),
-  limit: z.string().transform(Number).default(12),
+  page: z.string().transform(Number).default('1'),
+  limit: z.string().transform(Number).default('12'),
   search: z.string().optional(),
   category: z.string().optional(),
   minPrice: z.string().transform(Number).optional(),
@@ -211,7 +211,7 @@ const createProductHandler = async (request: AuthenticatedRequest) => {
           }))
         },
         specifications: {
-          create: validatedData.specifications
+          create: validatedData.specifications as any
         }
       },
       include: {

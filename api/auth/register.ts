@@ -1,10 +1,8 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../src/lib/prisma.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-
-const prisma = new PrismaClient()
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),

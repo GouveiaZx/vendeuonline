@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     const plan = await prisma.plan.create({
-      data: validatedData
+      data: validatedData as any
     });
 
     return NextResponse.json(

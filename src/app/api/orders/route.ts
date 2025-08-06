@@ -17,8 +17,8 @@ const createOrderSchema = z.object({
 })
 
 const querySchema = z.object({
-  page: z.string().transform(Number).default(1),
-  limit: z.string().transform(Number).default(10),
+  page: z.string().transform(Number).default('1'),
+  limit: z.string().transform(Number).default('10'),
   status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED']).optional(),
   paymentStatus: z.enum(['PENDING', 'PROCESSING', 'PAID', 'FAILED', 'REFUNDED']).optional(),
   storeId: z.string().optional(),

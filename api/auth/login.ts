@@ -1,10 +1,8 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../../src/lib/prisma.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-
-const prisma = new PrismaClient()
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),

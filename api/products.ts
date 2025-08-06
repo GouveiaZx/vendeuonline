@@ -1,8 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../src/lib/prisma.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
@@ -31,8 +29,8 @@ const createProductSchema = z.object({
     isMain: z.boolean().default(false)
   })).min(1, 'Pelo menos uma imagem é obrigatória'),
   specifications: z.array(z.object({
-    name: z.string(),
-    value: z.string()
+    name: z.string().min(1, 'Nome da especificação é obrigatório'),
+    value: z.string().min(1, 'Valor da especificação é obrigatório')
   })).default([])
 })
 
@@ -250,9 +248,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               isMain: img.isMain
             }))
           },
-          specifications: {
-            create: validatedData.specifications
-          }
+          ...(validatedData.specifications && validatedData.specifications.length > 0 && {
+            specifications: {
+              createMany: {
+                data: validatedData.specifications.map(spec => ({
+                  name: spec.name,
+                  value: spec.value
+                }))
+              }
+            }
+          })
         },
         include: {
           images: {

@@ -14,8 +14,8 @@ export const commonValidations = {
 
 // Validações de paginação
 export const paginationSchema = z.object({
-  page: z.string().transform(Number).default(1),
-  limit: z.string().transform(Number).default(10),
+  page: z.string().transform(Number).default('1'),
+  limit: z.string().transform(Number).default('10'),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).default('desc')
 })
