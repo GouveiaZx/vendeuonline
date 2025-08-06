@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from '@/types/api';
-import { getPayment } from '@/lib/mercadopago';
+import { getPaymentStatus } from '@/lib/asaas';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, data } = body;
+    const { event, payment } = body;
 
-    // Processar apenas notificações de pagamento
-    if (type !== 'payment') {
+    // Processar apenas eventos de pagamento
+    if (!event || !payment) {
       return NextResponse.json({ received: true });
     }
 
-    const paymentId = data.id;
+    const paymentId = payment.id;
     if (!paymentId) {
       return NextResponse.json({ error: 'Payment ID not found' }, { status: 400 });
     }
 
-    // Buscar informações do pagamento no Mercado Pago
-    const paymentInfo = await getPayment(paymentId.toString());
+    // Buscar informações do pagamento no Asaas
+    const paymentInfo = await getPaymentStatus(paymentId);
     if (!paymentInfo) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
-    const externalReference = paymentInfo.external_reference;
+    const externalReference = paymentInfo.externalReference;
     if (!externalReference || !externalReference.startsWith('subscription_')) {
       return NextResponse.json({ received: true });
     }
@@ -46,24 +46,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar status da assinatura baseado no status do pagamento
-    let newStatus = 'pending';
+    let newStatus = 'PENDING';
     let shouldUpdateUserPlan = false;
 
     switch (paymentInfo.status) {
-      case 'approved':
-        newStatus = 'active';
+      case 'RECEIVED':
+      case 'CONFIRMED':
+        newStatus = 'ACTIVE';
         shouldUpdateUserPlan = true;
         break;
-      case 'rejected':
-      case 'cancelled':
-        newStatus = 'cancelled';
+      case 'OVERDUE':
+      case 'REFUNDED':
+        newStatus = 'CANCELLED';
         break;
-      case 'pending':
-      case 'in_process':
-        newStatus = 'pending';
+      case 'PENDING':
+        newStatus = 'PENDING';
         break;
       default:
-        newStatus = 'pending';
+        newStatus = 'PENDING';
     }
 
     // Atualizar assinatura
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       await prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          status: newStatus.toUpperCase() as any,
+          status: newStatus as any,
           updatedAt: new Date()
         }
       });

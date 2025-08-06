@@ -1,29 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Building2, Users, Briefcase, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-
-interface Plan {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  price: number;
-  billingPeriod: 'MONTHLY' | 'YEARLY' | 'LIFETIME';
-  maxAds: number;
-  maxPhotosPerAd: number;
-  supportLevel: string;
-  features: string[];
-  isActive: boolean;
-  order: number;
-}
+import { usePlanStore } from '@/store/planStore';
 
 interface PlanSelectorProps {
   onPlanSelect?: (planId: string) => void;
@@ -36,31 +21,96 @@ export default function PlanSelector({
   selectedPlanId, 
   showPaymentButton = true 
 }: PlanSelectorProps) {
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { plans, loading, fetchPlans } = usePlanStore();
   const [selectedPlan, setSelectedPlan] = useState<string>(selectedPlanId || '');
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix');
   const [processingPayment, setProcessingPayment] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchPlans();
-  }, []);
+  }, [fetchPlans]);
 
-  const fetchPlans = async () => {
-    try {
-      const response = await fetch('/api/plans');
-      if (response.ok) {
-        const result = await response.json();
-        setPlans(result.data || []);
-      } else {
-        toast.error('Erro ao carregar planos');
-      }
-    } catch (error) {
-      console.error('Erro ao buscar planos:', error);
-      toast.error('Erro ao carregar planos');
-    } finally {
-      setLoading(false);
+  // Ícones para cada tipo de plano
+  const getPlanIcon = (planName: string) => {
+    switch (planName) {
+      case 'Micro-Empresa':
+        return Building2;
+      case 'Pequena Empresa':
+        return Users;
+      case 'Empresa Simples':
+        return Briefcase;
+      case 'Empresa Plus':
+        return Crown;
+      default:
+        return Building2;
+    }
+  };
+
+  // Cores para cada tipo de plano
+  const getPlanColor = (planName: string) => {
+    switch (planName) {
+      case 'Micro-Empresa':
+        return 'text-blue-600';
+      case 'Pequena Empresa':
+        return 'text-green-600';
+      case 'Empresa Simples':
+        return 'text-purple-600';
+      case 'Empresa Plus':
+        return 'text-yellow-600';
+      default:
+        return 'text-blue-600';
+    }
+  };
+
+  // Features detalhadas baseadas na documentação
+  const getPlanFeatures = (planName: string) => {
+    switch (planName) {
+      case 'Micro-Empresa':
+        return [
+          '2 anúncios simultâneos',
+          'Duração de 30 dias',
+          'Até 6 fotos por anúncio',
+          'Anúncio extra por R$ 14,90',
+          'Estatísticas básicas',
+          'Suporte por email',
+          'Verificação do perfil',
+          'Atendimento prioritário'
+        ];
+      case 'Pequena Empresa':
+        return [
+          '5 anúncios simultâneos',
+          'Duração de 30 dias',
+          'Até 10 fotos por anúncio',
+          'Anúncio extra por R$ 14,90',
+          'Estatísticas detalhadas',
+          'Atendimento prioritário',
+          'Verificação do perfil',
+          'Logo na página de anúncios'
+        ];
+      case 'Empresa Simples':
+        return [
+          '10 anúncios simultâneos',
+          'Duração de 30 dias',
+          'Até 15 fotos por anúncio',
+          'Anúncio extra por R$ 14,90',
+          'Estatísticas avançadas',
+          'Atendimento prioritário',
+          'Verificação do perfil',
+          'Perfil de loja personalizado'
+        ];
+      case 'Empresa Plus':
+        return [
+          '20 anúncios simultâneos',
+          'Duração de 30 dias',
+          'Até 20 fotos por anúncio',
+          'Anúncio extra por R$ 14,90',
+          'Estatísticas premium',
+          'Suporte dedicado',
+          'Verificação do perfil',
+          'Perfil de loja personalizado'
+        ];
+      default:
+        return [];
     }
   };
 
@@ -139,83 +189,90 @@ export default function PlanSelector({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {plans.map((plan) => {
           const isSelected = selectedPlan === plan.id;
-          const isPopular = plan.slug === 'pequena-empresa';
+          const isPopular = plan.name === 'Pequena Empresa';
+          const PlanIcon = getPlanIcon(plan.name);
+          const planColor = getPlanColor(plan.name);
+          const features = getPlanFeatures(plan.name);
           
           return (
             <Card 
               key={plan.id} 
               className={`relative cursor-pointer transition-all duration-200 ${
                 isSelected 
-                  ? 'ring-2 ring-primary border-primary' 
-                  : 'hover:shadow-lg'
+                  ? 'ring-2 ring-blue-500 border-blue-500 shadow-lg' 
+                  : 'hover:shadow-lg border-gray-200'
               } ${
-                isPopular ? 'border-green-500' : ''
+                isPopular ? 'border-green-500 shadow-md' : ''
               }`}
               onClick={() => handlePlanSelect(plan.id)}
             >
               {isPopular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-green-500 text-white px-3 py-1">
-                    Mais Popular
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                  <Badge className="bg-green-500 text-white px-4 py-1 text-xs font-semibold">
+                    MAIS POPULAR
                   </Badge>
                 </div>
               )}
               
               <CardHeader className="text-center pb-4">
-                <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">
+                <div className={`w-12 h-12 mx-auto mb-4 rounded-lg flex items-center justify-center ${
+                  plan.name === 'Micro-Empresa' ? 'bg-blue-100' :
+                  plan.name === 'Pequena Empresa' ? 'bg-green-100' :
+                  plan.name === 'Empresa Simples' ? 'bg-purple-100' :
+                  'bg-yellow-100'
+                }`}>
+                  <PlanIcon className={`h-6 w-6 ${planColor}`} />
+                </div>
+                
+                <CardTitle className="text-lg font-bold text-gray-900">{plan.name}</CardTitle>
+                <CardDescription className="text-sm text-gray-600 mt-1">
                   {plan.description}
                 </CardDescription>
+                
                 <div className="mt-4">
-                  <span className="text-3xl font-bold">
-                    {plan.price === 0 ? 'Grátis' : formatPrice(plan.price)}
-                  </span>
-                  {plan.price > 0 && (
-                    <span className="text-muted-foreground ml-1">
-                      {getBillingText(plan.billingPeriod)}
+                  <div className="flex items-baseline justify-center">
+                    <span className="text-3xl font-bold text-gray-900">
+                      R$ {plan.price.toFixed(2).replace('.', ',')}
                     </span>
-                  )}
+                    <span className="text-gray-500 ml-1 text-sm">/mês</span>
+                  </div>
                 </div>
               </CardHeader>
               
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
-                  <div className="flex items-center text-sm">
-                    <Check className="h-4 w-4 text-green-500 mr-2" />
-                    <span>{plan.maxAds === -1 ? 'Anúncios ilimitados' : `${plan.maxAds} anúncios`}</span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Check className="h-4 w-4 text-green-500 mr-2" />
-                    <span>{plan.maxPhotosPerAd} fotos por anúncio</span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Check className="h-4 w-4 text-green-500 mr-2" />
-                    <span>Suporte por {plan.supportLevel.toLowerCase()}</span>
-                  </div>
+                  {features.slice(0, 4).map((feature, index) => (
+                    <div key={index} className="flex items-start text-sm text-gray-600">
+                      <Check className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
                 </div>
                 
-                {plan.features.length > 0 && (
-                  <div className="space-y-2">
-                    {plan.features.map((feature, index) => (
-                      <div key={index} className="flex items-center text-sm">
-                        <Check className="h-4 w-4 text-green-500 mr-2" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {isSelected && (
-                  <div className="mt-4 p-2 bg-primary/10 rounded-lg">
-                    <div className="flex items-center justify-center">
-                      <Check className="h-5 w-5 text-primary mr-2" />
-                      <span className="text-primary font-medium">Plano Selecionado</span>
-                    </div>
-                  </div>
-                )}
+                <div className="pt-4">
+                  <Button 
+                    variant={isSelected ? "default" : "outline"}
+                    className={`w-full ${
+                      isSelected 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        : plan.name === 'Pequena Empresa'
+                        ? 'border-green-500 text-green-600 hover:bg-green-50'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlanSelect(plan.id);
+                    }}
+                  >
+                    {isSelected ? 'Plano Selecionado' : 'Fazer Upgrade'}
+                    {plan.name === 'Pequena Empresa' && !isSelected && (
+                      <span className="ml-2 text-xs">🔥 30 dias grátis</span>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           );

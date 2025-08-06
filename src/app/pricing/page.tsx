@@ -58,7 +58,7 @@ export default function PricingPage() {
             Escolha o plano ideal para impulsionar suas vendas no marketplace
           </p>
           <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full inline-block font-semibold">
-            🎉 30 dias grátis + Garantia de satisfação
+            🎉 Garantia de satisfação de 30 dias
           </div>
         </div>
       </div>
@@ -152,11 +152,11 @@ export default function PricingPage() {
             
             <div className="bg-gray-50 p-6 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">
-                Como funciona o período de teste gratuito?
+                Como funciona a garantia de satisfação?
               </h3>
               <p className="text-gray-600">
-                Todos os planos pagos incluem 30 dias gratuitos. Você só será cobrado após 
-                o período de teste, e pode cancelar a qualquer momento.
+                Oferecemos 30 dias de garantia de satisfação. Se não ficar satisfeito 
+                com nosso serviço, devolvemos seu dinheiro.
               </p>
             </div>
             
@@ -166,7 +166,7 @@ export default function PricingPage() {
               </h3>
               <p className="text-gray-600">
                 Seus anúncios continuarão ativos até o final do período pago. Após isso, 
-                você será automaticamente movido para o plano gratuito.
+                você precisará renovar sua assinatura para continuar anunciando.
               </p>
             </div>
             

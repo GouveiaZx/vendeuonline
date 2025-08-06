@@ -5,6 +5,7 @@ import { Search, MapPin, Star, Users, Package, Filter, Grid, List, Loader2 } fro
 import { APP_CONFIG } from '@/config/app';
 import { Link } from 'react-router-dom';
 import { useStoreStore } from '@/stores/storeStore';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 
 
 
@@ -239,16 +240,13 @@ export default function StoresPage() {
                     viewMode === 'list' ? 'flex' : ''
                   }`}>
                     <div className={viewMode === 'list' ? 'w-48 flex-shrink-0' : ''}>
-                      <img
-                        src={store.logo || store.banner || 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=modern_store_front_placeholder&image_size=square'}
+                      <OptimizedImage
+                        src={store.logo || store.banner}
                         alt={store.name}
                         className={`w-full object-cover ${
                           viewMode === 'list' ? 'h-full' : 'h-48'
                         }`}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=modern_store_front_placeholder&image_size=square';
-                        }}
+                        fallback={`https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('modern store front ' + store.category)}&image_size=square`}
                       />
                     </div>
                     

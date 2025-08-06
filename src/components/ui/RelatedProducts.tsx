@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ProductCard } from './ProductCard';
+import ProductCard from '@/components/ui/ProductCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product } from '@/types';
 

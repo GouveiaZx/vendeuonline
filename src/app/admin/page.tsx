@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAuthStore, usePermissions } from '@/store/authStore';
+import { useNotifications } from '@/hooks/useNotifications';
 import { 
   Users, 
   Store, 
@@ -12,7 +13,11 @@ import {
   Eye,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Bell,
+  Sparkles,
+  Zap,
+  BarChart3
 } from 'lucide-react';
 
 // Dados mock para o dashboard
@@ -88,17 +93,54 @@ const quickActions = [
     href: '/admin/products/reported'
   },
   {
-    title: 'Analytics',
+    title: 'Analytics Globais',
     description: 'Ver relatórios detalhados',
-    icon: TrendingUp,
+    icon: BarChart3,
     color: 'bg-purple-500',
     href: '/admin/analytics'
   }
 ];
 
+// testNotifications será definido dentro do componente
+
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const { isAdmin } = usePermissions();
+  const { simulateRealTimeNotifications, notifySuccess, notifyInfo, notifyWarning } = useNotifications();
+
+  const testNotifications = [
+    {
+      title: 'Testar Notificação de Sucesso',
+      description: 'Simular uma notificação de sucesso',
+      action: () => notifySuccess('Teste de Sucesso', 'Esta é uma notificação de teste de sucesso!'),
+      icon: Sparkles,
+      color: 'bg-green-500'
+    },
+    {
+      title: 'Testar Notificação de Info',
+      description: 'Simular uma notificação informativa',
+      action: () => notifyInfo('Informação', 'Esta é uma notificação informativa de teste.'),
+      icon: Bell,
+      color: 'bg-blue-500'
+    },
+    {
+      title: 'Testar Notificação de Aviso',
+      description: 'Simular uma notificação de aviso',
+      action: () => notifyWarning('Atenção', 'Esta é uma notificação de aviso de teste.'),
+      icon: AlertTriangle,
+      color: 'bg-yellow-500'
+    },
+    {
+      title: 'Iniciar Simulação em Tempo Real',
+      description: 'Ativar notificações automáticas aleatórias',
+      action: () => {
+        simulateRealTimeNotifications();
+        notifySuccess('Simulação Ativada', 'Notificações em tempo real foram ativadas!');
+      },
+      icon: Zap,
+      color: 'bg-indigo-500'
+    },
+  ];
 
   useEffect(() => {
     // Verificar autenticação e permissões
@@ -271,52 +313,105 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Additional Stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pedidos Hoje</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardStats.totalOrders}</p>
-              </div>
-              <ShoppingCart className="h-8 w-8 text-blue-600" />
+        {/* Seção de Teste de Notificações */}
+        <div className="mt-8 bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <Bell className="h-5 w-5 text-blue-600 mr-2" />
+              Sistema de Notificações - Testes
+            </h3>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {testNotifications.map((test, index) => {
+                const Icon = test.icon;
+                return (
+                  <button
+                    key={index}
+                    onClick={test.action}
+                    className="w-full flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-center"
+                  >
+                    <div className={`p-3 rounded-lg ${test.color} mb-3`}>
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <p className="font-medium text-gray-900 text-sm mb-1">{test.title}</p>
+                    <p className="text-xs text-gray-600">{test.description}</p>
+                  </button>
+                );
+              })}
             </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                <span>+12% vs ontem</span>
-              </div>
+            
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Dica:</strong> Use estes botões para testar o sistema de notificações em tempo real. 
+                As notificações aparecerão como toast e também na central de notificações (ícone do sino na navbar).
+              </p>
             </div>
           </div>
+        </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+        {/* Analytics Preview */}
+        <div className="mt-8 bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardStats.conversionRate}%</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                <span>+0.3% vs mês passado</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Aprovações Pendentes</p>
-                <p className="text-2xl font-bold text-gray-900">{dashboardStats.pendingApprovals}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-yellow-600" />
-            </div>
-            <div className="mt-4">
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                Ver todas →
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <BarChart3 className="h-5 w-5 text-indigo-600 mr-2" />
+                Prévia de Analytics
+              </h3>
+              <button
+                onClick={() => window.location.href = '/admin/analytics'}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Ver relatório completo →
               </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center">
+                  <ShoppingCart className="h-8 w-8 text-blue-600" />
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-gray-600">Pedidos Hoje</p>
+                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.totalOrders}</p>
+                  <div className="flex items-center justify-center text-sm text-green-600 mt-1">
+                    <TrendingUp className="h-4 w-4 mr-1" />
+                    <span>+12% vs ontem</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex items-center justify-center">
+                  <TrendingUp className="h-8 w-8 text-green-600" />
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
+                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.conversionRate}%</p>
+                  <div className="flex items-center justify-center text-sm text-green-600 mt-1">
+                    <TrendingUp className="h-4 w-4 mr-1" />
+                    <span>+0.3% vs mês passado</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex items-center justify-center">
+                  <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                </div>
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-gray-600">Aprovações Pendentes</p>
+                  <p className="text-2xl font-bold text-gray-900">{dashboardStats.pendingApprovals}</p>
+                  <div className="mt-1">
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      Ver todas →
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

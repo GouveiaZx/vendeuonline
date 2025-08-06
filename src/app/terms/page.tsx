@@ -72,7 +72,7 @@ export default function TermsPage() {
         'Vendedores pagam mensalidades conforme o plano escolhido.',
         'Oferecemos 30 dias grátis para novos vendedores e garantia de 7 dias.',
         'Não cobramos comissões sobre vendas - vendedores ficam com 100% do valor.',
-        'Pagamentos são processados através de parceiros certificados (Mercado Pago, Stripe).',
+        'Pagamentos são processados através de parceiros certificados (Asaas, Stripe).',
         'Taxas de processamento de pagamento podem ser aplicadas pelos processadores.',
         'Reembolsos seguem nossas políticas específicas e podem levar até 7 dias úteis.'
       ]

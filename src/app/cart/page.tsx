@@ -1,284 +1,445 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
-import { useCart } from '@/store/cartStore';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CreditCard, X } from 'lucide-react';
+import { useCart, useShipping } from '@/store/orderStore';
+import { useCart as useCartHook } from '@/store/cartStore';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
-export default function CartPage() {
+interface CartItemComponentProps {
+  item: any;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemove: (productId: string) => void;
+}
+
+const CartItemComponent: React.FC<CartItemComponentProps> = ({ 
+  item, 
+  onUpdateQuantity, 
+  onRemove 
+}) => {
+  const handleQuantityChange = (newQuantity: number) => {
+    if (newQuantity < 1) {
+      onRemove(item.productId);
+    } else {
+      onUpdateQuantity(item.productId, newQuantity);
+    }
+  };
+
+  return (
+    <Card className="mb-4">
+      <CardContent className="p-4">
+        <div className="flex items-center space-x-4">
+          {/* Product Image */}
+          <div className="w-20 h-20 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
+            {item.product.images && item.product.images.length > 0 ? (
+              <img 
+                src={item.product.images[0]} 
+                alt={item.product.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+          
+          {/* Product Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-lg truncate">{item.product.name}</h3>
+            <p className="text-sm text-gray-600 mb-1">Vendido por: {item.sellerName}</p>
+            <p className="text-sm text-gray-500 line-clamp-2">{item.product.description}</p>
+            
+            {/* Price and Stock */}
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-lg font-bold text-green-600">
+                  R$ {item.price.toFixed(2)}
+                </span>
+                {item.product.originalPrice && item.product.originalPrice > item.price && (
+                  <span className="text-sm text-gray-500 line-through">
+                    R$ {item.product.originalPrice.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              
+              {item.product.stock && (
+                <Badge variant={item.product.stock > 10 ? 'default' : 'destructive'}>
+                  {item.product.stock} em estoque
+                </Badge>
+              )}
+            </div>
+          </div>
+          
+          {/* Quantity Controls */}
+          <div className="flex flex-col items-center space-y-2">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuantityChange(item.quantity - 1)}
+                disabled={item.quantity <= 1}
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+              
+              <Input
+                type="number"
+                value={item.quantity}
+                onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                className="w-16 text-center"
+                min="1"
+                max={item.product.stock || 999}
+              />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuantityChange(item.quantity + 1)}
+                disabled={item.product.stock && item.quantity >= item.product.stock}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {/* Subtotal */}
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Subtotal</p>
+              <p className="font-semibold text-green-600">
+                R$ {(item.price * item.quantity).toFixed(2)}
+              </p>
+            </div>
+            
+            {/* Remove Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(item.productId)}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const {
-    items,
-    total,
-    itemCount,
-    updateQuantity,
-    removeItem,
+    items: cartItems,
+    updateQuantity: updateCartQuantity,
+    removeItem: removeCartItem,
     clearCart,
-    isEmpty
-  } = useCart();
+    isEmpty: cartIsEmpty,
+    total: subtotal
+  } = useCartHook();
   
-  const [isClearing, setIsClearing] = useState(false);
-
-  const handleQuantityChange = (itemId: string, newQuantity: number) => {
-    if (newQuantity < 1) {
-      removeItem(itemId);
-      toast.success('Item removido do carrinho');
+  const isEmpty = cartIsEmpty;
+  const { calculateShipping } = useShipping();
+  
+  // Convert cartStore items to orderStore format for display
+  const items = cartItems.map(item => ({
+        id: item.id,
+        productId: item.id,
+        product: {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          stock: item.maxQuantity || 999,
+          sellerId: 'seller-1',
+          category: 'Geral',
+          description: ''
+        },
+        sellerId: 'seller-1',
+        sellerName: item.store,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.price * item.quantity,
+        addedAt: new Date()
+      }));
+  
+  const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const count = items.reduce((sum, item) => sum + item.quantity, 0);
+  
+  const updateQuantity = (itemId: string, quantity: number) => {
+    updateCartQuantity(itemId, quantity);
+  };
+  
+  const removeItem = (itemId: string) => {
+    removeCartItem(itemId);
+  };
+  
+  const clear = () => {
+    clearCart();
+  };
+  
+  const getItemsByStore = () => {
+    const grouped: { [key: string]: any[] } = {};
+    items.forEach(item => {
+      const storeKey = item.sellerName || 'default';
+      if (!grouped[storeKey]) {
+        grouped[storeKey] = [];
+      }
+      grouped[storeKey].push(item);
+    });
+    return grouped;
+  };
+  
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  
+  // Group items by store/seller
+  const itemsByStore = getItemsByStore();
+  const storeIds = Object.keys(itemsByStore);
+  
+  const handleApplyCoupon = () => {
+    // Mock coupon validation
+    const validCoupons = {
+      'DESCONTO10': 0.10,
+      'BEMVINDO': 0.05,
+      'FRETEGRATIS': 0
+    };
+    
+    if (validCoupons[couponCode as keyof typeof validCoupons] !== undefined) {
+      const discountPercent = validCoupons[couponCode as keyof typeof validCoupons];
+      setDiscount(total * discountPercent);
+      
+      if (couponCode === 'FRETEGRATIS') {
+        setShippingCost(0);
+        toast.success('Cupom aplicado! Frete grátis!');
+      } else {
+        toast.success(`Cupom aplicado! Desconto de ${(discountPercent * 100).toFixed(0)}%`);
+      }
     } else {
-      updateQuantity(itemId, newQuantity);
+      toast.error('Cupom inválido');
     }
   };
-
-  const handleRemoveItem = (itemId: string, itemName: string) => {
-    removeItem(itemId);
-    toast.success(`${itemName} removido do carrinho`);
+  
+  const handleCalculateShipping = async () => {
+    setIsCalculatingShipping(true);
+    try {
+      // Mock shipping calculation
+      const mockShipping = 15.90; // R$ 15,90 de frete
+      setShippingCost(mockShipping);
+      toast.success('Frete calculado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao calcular frete');
+    } finally {
+      setIsCalculatingShipping(false);
+    }
   };
-
-  const handleClearCart = async () => {
-    setIsClearing(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    clearCart();
-    setIsClearing(false);
-    toast.success('Carrinho limpo com sucesso');
-  };
-
+  
+  const finalTotal = total - discount + shippingCost;
+  
   const handleCheckout = () => {
     if (isEmpty) {
-      toast.error('Adicione itens ao carrinho antes de finalizar a compra');
+      toast.error('Seu carrinho está vazio');
       return;
     }
+    
+    // Redirect to checkout page
     navigate('/checkout');
   };
-
+  
+  const handleClearCart = () => {
+    if (window.confirm('Tem certeza que deseja limpar o carrinho?')) {
+      clear();
+      toast.success('Carrinho limpo com sucesso!');
+    }
+  };
+  
   if (isEmpty) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-8">Carrinho de Compras</h1>
-          
-          <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShoppingBag className="h-12 w-12 text-gray-400" />
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="mb-8">
+            <ShoppingBag className="w-24 h-24 mx-auto text-gray-300 mb-4" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Seu carrinho está vazio</h1>
+            <p className="text-gray-600 mb-6">
+              Parece que você ainda não adicionou nenhum item ao seu carrinho.
+            </p>
+            
+            <div className="space-y-4">
+              <Button 
+                onClick={() => navigate('/')}
+                className="w-full sm:w-auto"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Continuar Comprando
+              </Button>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Seu carrinho está vazio</h2>
-            <p className="text-gray-600 mb-8">Adicione produtos ao seu carrinho para continuar comprando</p>
-            <button
-              onClick={() => navigate('/products')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Continuar Comprando
-            </button>
           </div>
         </div>
       </div>
     );
   }
-
+  
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Carrinho de Compras ({itemCount} {itemCount === 1 ? 'item' : 'itens'})
-          </h1>
-          
-          {!isEmpty && (
-            <button
-              onClick={handleClearCart}
-              disabled={isClearing}
-              className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isClearing ? 'Limpando...' : 'Limpar Carrinho'}
-            </button>
-          )}
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border p-6">
-                <div className="flex gap-4">
-                  {/* Product Image */}
-                  <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=product%20placeholder&image_size=square';
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Product Info */}
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-1">{item.name}</h3>
-                        <p className="text-sm text-gray-600">{item.store}</p>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveItem(item.id, item.name)}
-                        className="text-red-500 hover:text-red-700 p-1"
-                        title="Remover item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      {/* Quantity Controls */}
-                      <div className="flex items-center border border-gray-300 rounded-lg">
-                        <button
-                          onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                          className="p-2 hover:bg-gray-50 transition-colors"
-                          disabled={item.quantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="px-4 py-2 font-medium">{item.quantity}</span>
-                        <button
-                          onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                          className="p-2 hover:bg-gray-50 transition-colors"
-                          disabled={item.quantity >= (item.maxQuantity || 99)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                      
-                      {/* Price */}
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-gray-900">
-                          R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}
-                        </p>
-                        {item.quantity > 1 && (
-                          <p className="text-sm text-gray-600">
-                            R$ {item.price.toFixed(2).replace('.', ',')} cada
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Meu Carrinho</h1>
+            <p className="text-gray-600 mt-1">
+              {count} {count === 1 ? 'item' : 'itens'} no seu carrinho
+            </p>
           </div>
-
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Pedido</h3>
-              
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'itens'}):</span>
-                  <span className="text-gray-900">R$ {total.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Frete:</span>
-                  <span className="text-green-600 font-medium">Grátis</span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total:</span>
-                    <span>R$ {total.toFixed(2).replace('.', ',')}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <button
-                onClick={handleCheckout}
-                className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 mb-4"
-              >
-                Finalizar Compra
-                <ArrowRight className="h-4 w-4" />
-              </button>
-              
-              <button
-                onClick={() => navigate('/products')}
-                className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                Continuar Comprando
-              </button>
-              
-              {/* Security Info */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Compra Segura</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>✓ Pagamento 100% seguro</li>
-                  <li>✓ Frete grátis para todo Brasil</li>
-                  <li>✓ Garantia de entrega</li>
-                  <li>✓ Suporte 24/7</li>
-                </ul>
-              </div>
-            </div>
+          
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Continuar Comprando
+            </Button>
+            
+            <Button 
+              variant="destructive" 
+              onClick={handleClearCart}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar Carrinho
+            </Button>
           </div>
         </div>
         
-        {/* Recommended Products */}
-        <div className="mt-12">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Você também pode gostar</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Mock recommended products */}
-            {[
-              {
-                id: 'rec1',
-                name: 'Smartphone Samsung Galaxy A54',
-                price: 1299.99,
-                image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=samsung%20galaxy%20a54%20smartphone&image_size=square',
-                store: 'TechStore'
-              },
-              {
-                id: 'rec2',
-                name: 'Fone Bluetooth JBL',
-                price: 199.99,
-                image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=jbl%20bluetooth%20headphones&image_size=square',
-                store: 'AudioMax'
-              },
-              {
-                id: 'rec3',
-                name: 'Carregador Portátil 10000mAh',
-                price: 89.99,
-                image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=portable%20power%20bank%20charger&image_size=square',
-                store: 'TechStore'
-              },
-              {
-                id: 'rec4',
-                name: 'Capa Protetora Premium',
-                price: 39.99,
-                image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=premium%20phone%20case%20protection&image_size=square',
-                store: 'AccessoriesPro'
-              }
-            ].map((product) => (
-              <div key={product.id} className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
-                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Cart Items */}
+          <div className="lg:col-span-2">
+            {storeIds.map((storeId) => {
+              const storeItems = itemsByStore[storeId];
+              const storeName = storeItems[0]?.sellerName || 'Loja';
+              
+              return (
+                <div key={storeId} className="mb-8">
+                  <div className="flex items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-900">{storeName}</h2>
+                    <Badge variant="secondary" className="ml-2">
+                      {storeItems.length} {storeItems.length === 1 ? 'item' : 'itens'}
+                    </Badge>
+                  </div>
+                  
+                  {storeItems.map((item) => (
+                    <CartItemComponent
+                      key={item.id}
+                      item={item}
+                      onUpdateQuantity={updateQuantity}
+                      onRemove={removeItem}
+                    />
+                  ))}
+                  
+                  <Separator className="my-6" />
                 </div>
-                <h3 className="font-medium text-gray-900 mb-1 text-sm">{product.name}</h3>
-                <p className="text-xs text-gray-600 mb-2">{product.store}</p>
-                <p className="text-lg font-semibold text-gray-900 mb-3">
-                  R$ {product.price.toFixed(2).replace('.', ',')}
-                </p>
-                <button
-                  onClick={() => {
-                    // Add to cart logic would go here
-                    toast.success(`${product.name} adicionado ao carrinho`);
-                  }}
-                  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              );
+            })}
+          </div>
+          
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-4">
+              <CardHeader>
+                <CardTitle>Resumo do Pedido</CardTitle>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                {/* Subtotal */}
+                <div className="flex justify-between">
+                  <span>Subtotal ({count} {count === 1 ? 'item' : 'itens'})</span>
+                  <span>R$ {total.toFixed(2)}</span>
+                </div>
+                
+                {/* Coupon */}
+                <div className="space-y-2">
+                  <Label htmlFor="coupon">Cupom de Desconto</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      id="coupon"
+                      placeholder="Digite o cupom"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    />
+                    <Button 
+                      variant="outline" 
+                      onClick={handleApplyCoupon}
+                      disabled={!couponCode}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                  {discount > 0 && (
+                    <p className="text-sm text-green-600">
+                      Desconto aplicado: -R$ {discount.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Shipping */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span>Frete</span>
+                    {shippingCost > 0 ? (
+                      <span>R$ {shippingCost.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-gray-500">A calcular</span>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleCalculateShipping}
+                    disabled={isCalculatingShipping}
+                    className="w-full"
+                  >
+                    {isCalculatingShipping ? 'Calculando...' : 'Calcular Frete'}
+                  </Button>
+                </div>
+                
+                <Separator />
+                
+                {/* Total */}
+                <div className="flex justify-between text-lg font-semibold">
+                  <span>Total</span>
+                  <span className="text-green-600">R$ {finalTotal.toFixed(2)}</span>
+                </div>
+                
+                {/* Checkout Button */}
+                <Button 
+                  onClick={handleCheckout}
+                  className="w-full"
+                  size="lg"
                 >
-                  Adicionar
-                </button>
-              </div>
-            ))}
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Finalizar Compra
+                </Button>
+                
+                {/* Security Info */}
+                <div className="text-xs text-gray-500 text-center">
+                  <p>🔒 Compra 100% segura</p>
+                  <p>Seus dados estão protegidos</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default CartPage;

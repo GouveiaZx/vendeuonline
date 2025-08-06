@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Save, Upload, MapPin, Clock, Phone, Mail, Globe, Camera, Star, Shield, Truck } from 'lucide-react';
 import { toast } from 'sonner';
+import ImageUploader from '@/components/ImageUploader';
 
 interface StoreSettings {
   name: string;
@@ -50,8 +51,8 @@ interface StoreSettings {
 const initialSettings: StoreSettings = {
   name: 'TechStore Erechim',
   description: 'Sua loja de tecnologia em Erechim-RS. Oferecemos os melhores produtos com garantia e suporte técnico especializado.',
-  logo: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20tech%20store%20logo%20minimalist%20design&image_size=square',
-  banner: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=technology%20store%20banner%20with%20electronics%20and%20gadgets&image_size=landscape_16_9',
+  logo: '',
+  banner: '',
   category: 'eletronicos',
   address: {
     street: 'Rua Sete de Setembro',
@@ -264,34 +265,34 @@ export default function SellerStorePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Logo da Loja
                     </label>
-                    <div className="flex items-center gap-4">
-                      <img 
-                        src={settings.logo} 
-                        alt="Logo"
-                        className="w-16 h-16 rounded-lg object-cover border"
-                      />
-                      <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        <Upload className="h-4 w-4" />
-                        Alterar Logo
-                      </button>
-                    </div>
+                    <ImageUploader
+                      bucket="STORES"
+                      onUpload={(url) => updateSettings('logo', url)}
+                      currentImage={settings.logo}
+                      allowedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                      maxSizeInMB={5}
+                      placeholder="Clique ou arraste o logo da loja aqui"
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      Recomendado: 200x200px, formato quadrado
+                    </p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Banner da Loja
                     </label>
-                    <div className="flex items-center gap-4">
-                      <img 
-                        src={settings.banner} 
-                        alt="Banner"
-                        className="w-24 h-12 rounded object-cover border"
-                      />
-                      <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        <Camera className="h-4 w-4" />
-                        Alterar Banner
-                      </button>
-                    </div>
+                    <ImageUploader
+                      bucket="STORES"
+                      onUpload={(url) => updateSettings('banner', url)}
+                      currentImage={settings.banner}
+                      allowedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                      maxSizeInMB={10}
+                      placeholder="Clique ou arraste o banner da loja aqui"
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      Recomendado: 1200x400px, formato retangular
+                    </p>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from '@/types/api';
 import { authMiddleware } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
-import { getPayment } from '@/lib/mercadopago';
+import { getPaymentStatus } from '@/lib/asaas';
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,13 +85,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Se há payment_id, buscar informações atualizadas do Mercado Pago
+    // Se há payment_id, buscar informações atualizadas do Asaas
     let paymentInfo = null;
-    if (subscription.payment_id) {
+    if (paymentId) {
       try {
-        paymentInfo = await getPayment(subscription.payment_id);
+        paymentInfo = await getPaymentStatus(paymentId);
       } catch (error) {
-        console.error('Erro ao buscar pagamento no Mercado Pago:', error);
+        console.error('Erro ao buscar pagamento no Asaas:', error);
       }
     }
 
@@ -100,15 +100,16 @@ export async function GET(request: NextRequest) {
       let newStatus = subscription.status;
       
       switch (paymentInfo.status) {
-        case 'approved':
-          if (subscription.status === 'pending') {
-            newStatus = 'active';
+        case 'RECEIVED':
+        case 'CONFIRMED':
+          if (subscription.status === 'PENDING') {
+            newStatus = 'ACTIVE';
           }
           break;
-        case 'rejected':
-        case 'cancelled':
-          if (subscription.status === 'pending') {
-            newStatus = 'cancelled';
+        case 'OVERDUE':
+        case 'REFUNDED':
+          if (subscription.status === 'PENDING') {
+            newStatus = 'CANCELLED';
           }
           break;
       }
@@ -119,11 +120,11 @@ export async function GET(request: NextRequest) {
           await prisma.subscription.update({
             where: { id: subscription.id },
             data: {
-              status: newStatus.toUpperCase() as any,
+              status: newStatus as any,
               updatedAt: new Date()
             }
           });
-          subscription.status = newStatus.toUpperCase() as any;
+          subscription.status = newStatus as any;
         } catch (updateError) {
           console.error('Erro ao atualizar assinatura:', updateError);
         }
@@ -142,12 +143,13 @@ export async function GET(request: NextRequest) {
       payment: paymentInfo ? {
         id: paymentInfo.id,
         status: paymentInfo.status,
-        status_detail: paymentInfo.status_detail,
-        payment_method_id: paymentInfo.payment_method_id,
-        payment_type_id: paymentInfo.payment_type_id,
-        transaction_amount: paymentInfo.transaction_amount,
-        date_created: paymentInfo.date_created,
-        date_approved: paymentInfo.date_approved
+        billing_type: paymentInfo.billingType,
+        value: paymentInfo.value,
+        net_value: paymentInfo.netValue,
+        date_created: paymentInfo.dateCreated,
+        due_date: paymentInfo.dueDate,
+        payment_date: paymentInfo.paymentDate,
+        invoice_url: paymentInfo.invoiceUrl
       } : null
     });
 

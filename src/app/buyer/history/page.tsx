@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Clock, Eye, Heart, ShoppingCart, Trash2, Star, Calendar, Filter, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 
 interface HistoryItem {
   id: string;
@@ -50,7 +51,7 @@ export default function HistoryPage() {
             id: '1',
             productId: 'prod-1',
             name: 'Produto Exemplo',
-            image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=product%20example&image_size=square',
+            image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=produto%20exemplo&image_size=square',
             price: 99.90,
             originalPrice: 149.90,
             seller: 'Vendedor Exemplo',

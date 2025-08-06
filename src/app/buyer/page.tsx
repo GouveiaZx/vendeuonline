@@ -16,6 +16,8 @@ import {
   Filter,
   Bell
 } from 'lucide-react';
+import ProductCard from '@/components/ui/ProductCard';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 
 // Dados mock para o dashboard do comprador
 const buyerStats = {
@@ -35,7 +37,7 @@ const recentOrders = [
     value: 899.90,
     status: 'shipped',
     estimatedDelivery: '2024-01-25',
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=smartphone%20samsung%20galaxy%20modern%20sleek%20design&image_size=square'
+    category: 'Eletrônicos'
   },
   {
     id: '#1233',
@@ -44,7 +46,7 @@ const recentOrders = [
     value: 199.90,
     status: 'processing',
     estimatedDelivery: '2024-01-28',
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=bluetooth%20headphones%20wireless%20modern%20black&image_size=square'
+    category: 'Eletrônicos'
   },
   {
     id: '#1232',
@@ -53,7 +55,7 @@ const recentOrders = [
     value: 89.90,
     status: 'delivered',
     estimatedDelivery: '2024-01-20',
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=portable%20power%20bank%20charger%20white%20modern&image_size=square'
+    category: 'Eletrônicos'
   }
 ];
 
@@ -66,7 +68,7 @@ const favoriteProducts = [
     originalPrice: 2899.90,
     discount: 14,
     rating: 4.5,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=dell%20inspiron%20laptop%20silver%20modern%20sleek&image_size=square'
+    category: 'Eletrônicos'
   },
   {
     id: 2,
@@ -76,7 +78,7 @@ const favoriteProducts = [
     originalPrice: 2199.90,
     discount: 14,
     rating: 4.7,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=smart%20tv%2055%20inch%204k%20modern%20black%20screen&image_size=square'
+    category: 'Eletrônicos'
   },
   {
     id: 3,
@@ -86,7 +88,7 @@ const favoriteProducts = [
     originalPrice: 499.90,
     discount: 20,
     rating: 4.8,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=nike%20air%20max%20sneakers%20white%20blue%20modern&image_size=square'
+    category: 'Moda'
   }
 ];
 
@@ -97,7 +99,7 @@ const recommendedProducts = [
     store: 'Gamer Zone',
     price: 129.90,
     rating: 4.6,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=gaming%20mouse%20rgb%20lights%20black%20modern&image_size=square'
+    category: 'Eletrônicos'
   },
   {
     id: 5,
@@ -105,7 +107,7 @@ const recommendedProducts = [
     store: 'Fashion Store',
     price: 79.90,
     rating: 4.3,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=polo%20shirt%20navy%20blue%20cotton%20classic&image_size=square'
+    category: 'Moda'
   },
   {
     id: 6,
@@ -113,7 +115,7 @@ const recommendedProducts = [
     store: 'Livraria Tech',
     price: 89.90,
     rating: 4.9,
-    image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=clean%20code%20book%20programming%20white%20cover&image_size=square'
+    category: 'Livros'
   }
 ];
 
@@ -246,9 +248,11 @@ export default function BuyerDashboard() {
                 <div className="space-y-4">
                   {recentOrders.map((order) => (
                     <div key={order.id} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                      <img 
-                        src={order.image} 
+                      <OptimizedImage 
+                        src={`/api/placeholder/product/${order.category}`}
                         alt={order.product}
+                        width={64}
+                        height={64}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
@@ -286,24 +290,11 @@ export default function BuyerDashboard() {
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {recommendedProducts.map((product) => (
-                    <div key={product.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                      <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="w-full h-32 object-cover rounded-lg mb-3"
-                      />
-                      <h4 className="font-medium text-gray-900 mb-1 text-sm">{product.name}</h4>
-                      <p className="text-xs text-gray-500 mb-2">{product.store}</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-green-600 text-sm">
-                          R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                        <div className="flex items-center">
-                          <Star className="h-3 w-3 text-yellow-400 mr-1" />
-                          <span className="text-xs text-gray-600">{product.rating}</span>
-                        </div>
-                      </div>
-                    </div>
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      className="h-full"
+                    />
                   ))}
                 </div>
               </div>
@@ -369,9 +360,11 @@ export default function BuyerDashboard() {
                 <div className="space-y-4">
                   {favoriteProducts.map((product) => (
                     <div key={product.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                      <img 
-                        src={product.image} 
+                      <OptimizedImage 
+                        src={`/api/placeholder/product/${product.category}`}
                         alt={product.name}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 object-cover rounded-lg"
                       />
                       <div className="flex-1 min-w-0">

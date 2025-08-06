@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { Search, Filter, Grid, List, SlidersHorizontal, Loader2, AlertCircle } from 'lucide-react';
-import { ProductCard } from '@/components/ui/ProductCard';
+import ProductCard from '@/components/ui/ProductCard';
 import { ProductFilters } from '@/components/ui/ProductFilters';
 import { useProductStore } from '@/store/productStore';
 

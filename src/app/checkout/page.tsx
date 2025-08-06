@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Smartphone, FileText, Check, Clock, X } from 'lucide-react';
-import { usePayment, PaymentData } from '@/store/paymentStore';
+import { ArrowLeft, Check } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
+import { useOrders } from '@/store/orderStore';
+import PaymentForm from '@/components/payment/PaymentForm';
+import PaymentStatus from '@/components/payment/PaymentStatus';
+import { usePayment } from '@/hooks/usePayment';
+import { asaasService } from '@/services/asaasService';
 import { toast } from 'sonner';
 
 interface CheckoutFormData {
@@ -45,53 +49,14 @@ export default function CheckoutPage() {
   const searchParams = new URLSearchParams(location.search);
   const orderId = searchParams.get('orderId') || `order_${Date.now()}`;
   
-  const {
-    paymentMethods,
-    currentPayment,
-    isProcessing,
-    error,
-    createPayment,
-    processPayment,
-    clearError,
-    isPixPayment,
-    isCardPayment,
-    isPending,
-    isApproved
-  } = usePayment();
-  
+  const { checkPaymentStatus } = usePayment();
   const { items, total, clearCart } = useCartStore();
+  const { createOrder } = useOrders();
   
   const [step, setStep] = useState<'form' | 'payment' | 'confirmation'>('form');
   const [formData, setFormData] = useState<CheckoutFormData>(initialFormData);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods[0]);
-  const [cardData, setCardData] = useState({
-    number: '',
-    holderName: '',
-    expiryDate: '',
-    cvv: '',
-    cpf: ''
-  });
-  const [installments, setInstallments] = useState(1);
-  const [pixTimer, setPixTimer] = useState(0);
-
-  // PIX timer effect
-  useEffect(() => {
-    if (isPixPayment && currentPayment?.expiresAt) {
-      const interval = setInterval(() => {
-        const now = new Date().getTime();
-        const expiry = new Date(currentPayment.expiresAt!).getTime();
-        const timeLeft = Math.max(0, Math.floor((expiry - now) / 1000));
-        setPixTimer(timeLeft);
-        
-        if (timeLeft === 0) {
-          clearInterval(interval);
-          toast.error('Código PIX expirado. Gere um novo código.');
-        }
-      }, 1000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isPixPayment, currentPayment]);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [paymentData, setPaymentData] = useState<any>(null);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -100,164 +65,99 @@ export default function CheckoutPage() {
     }
   }, [items, step, navigate]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStep('payment');
   };
 
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    clearError();
-    
+  const handlePaymentSuccess = async (paymentId: string) => {
     try {
-      const paymentData: PaymentData = {
-        method: selectedPaymentMethod,
-        amount: total,
-        installments: selectedPaymentMethod.type === 'credit_card' ? installments : undefined,
-        cardData: isCardPayment ? {
-          ...cardData,
-          cpf: formData.cpf
-        } : undefined,
-        pixData: isPixPayment ? {
-          cpf: formData.cpf,
-          email: formData.email
-        } : undefined
-      };
-
-      const payment = await createPayment(orderId, paymentData);
+      setPaymentId(paymentId);
       
-      if (selectedPaymentMethod.type === 'pix') {
-        setStep('confirmation');
-        toast.success('Código PIX gerado com sucesso!');
-      } else {
-        const success = await processPayment(payment.id);
-        if (success) {
-          setStep('confirmation');
-          clearCart();
-          toast.success('Pagamento aprovado com sucesso!');
-        }
+      // Buscar dados do pagamento
+      const payment = await asaasService.getPayment(paymentId);
+      setPaymentData(payment);
+      
+      // Criar pedido no sistema
+      const shippingAddress = {
+        name: formData.fullName,
+        street: formData.address.street,
+        number: formData.address.number,
+        complement: formData.address.complement || '',
+        neighborhood: formData.address.neighborhood,
+        city: formData.address.city,
+        state: formData.address.state,
+        zipCode: formData.address.zipCode,
+        phone: formData.phone
+      };
+      
+      await createOrder(shippingAddress, paymentId);
+      
+      // Limpar carrinho se pagamento foi confirmado
+      if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
+        clearCart();
       }
+      
+      setStep('confirmation');
     } catch (error) {
-      toast.error('Erro ao processar pagamento');
+      console.error('Erro ao processar sucesso do pagamento:', error);
+      toast.error('Erro ao finalizar pedido');
     }
   };
 
-  const copyPixCode = () => {
-    if (currentPayment?.pixCode) {
-      navigator.clipboard.writeText(currentPayment.pixCode);
-      toast.success('Código PIX copiado!');
-    }
+  const handlePaymentError = (error: string) => {
+    toast.error(`Erro no pagamento: ${error}`);
   };
 
-  const getPaymentIcon = (type: string) => {
-    switch (type) {
-      case 'pix': return <Smartphone className="h-5 w-5" />;
-      case 'credit_card':
-      case 'debit_card': return <CreditCard className="h-5 w-5" />;
-      case 'boleto': return <FileText className="h-5 w-5" />;
-      default: return <CreditCard className="h-5 w-5" />;
-    }
+
+
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value / 100);
   };
 
   if (step === 'confirmation') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-            {isPixPayment ? (
-              <>
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Smartphone className="h-8 w-8 text-blue-600" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">PIX Gerado com Sucesso!</h1>
-                <p className="text-gray-600 mb-6">Use o código abaixo para realizar o pagamento</p>
-                
-                {pixTimer > 0 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center justify-center gap-2 text-orange-700">
-                      <Clock className="h-5 w-5" />
-                      <span className="font-medium">Expira em: {formatTime(pixTimer)}</span>
-                    </div>
+          {paymentData ? (
+            <PaymentStatus
+              payment={paymentData}
+              onClose={() => navigate('/buyer/orders')}
+            />
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check className="h-8 w-8 text-green-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Pedido Criado!</h1>
+              <p className="text-gray-600 mb-6">Seu pedido foi criado com sucesso</p>
+              
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Pedido:</p>
+                    <p className="font-medium">#{orderId.slice(-8).toUpperCase()}</p>
                   </div>
-                )}
-                
-                {currentPayment?.pixQrCode && (
-                  <div className="mb-6">
-                    <img 
-                      src={currentPayment.pixQrCode} 
-                      alt="QR Code PIX" 
-                      className="mx-auto mb-4 border rounded-lg"
-                    />
-                    <p className="text-sm text-gray-600 mb-4">Escaneie o QR Code ou copie o código abaixo</p>
-                  </div>
-                )}
-                
-                {currentPayment?.pixCode && (
-                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                    <p className="text-xs text-gray-600 mb-2">Código PIX:</p>
-                    <p className="font-mono text-sm break-all text-gray-800 mb-3">
-                      {currentPayment.pixCode}
-                    </p>
-                    <button
-                      onClick={copyPixCode}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Copiar Código
-                    </button>
-                  </div>
-                )}
-                
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900 mb-2">
-                    R$ {total.toFixed(2).replace('.', ',')}
-                  </p>
-                  <p className="text-gray-600">Após o pagamento, você receberá a confirmação por email</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check className="h-8 w-8 text-green-600" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-4">Pagamento Aprovado!</h1>
-                <p className="text-gray-600 mb-6">Seu pedido foi confirmado e você receberá os detalhes por email</p>
-                
-                <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Pedido:</p>
-                      <p className="font-medium">#{orderId.slice(-8).toUpperCase()}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Total:</p>
-                      <p className="font-medium">R$ {total.toFixed(2).replace('.', ',')}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Método:</p>
-                      <p className="font-medium">{selectedPaymentMethod.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Status:</p>
-                      <p className="font-medium text-green-600">Aprovado</p>
-                    </div>
+                  <div>
+                    <p className="text-gray-600">Total:</p>
+                    <p className="font-medium">R$ {(total / 100).toFixed(2).replace('.', ',')}</p>
                   </div>
                 </div>
-                
-                <button
-                  onClick={() => navigate('/buyer/orders')}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Ver Meus Pedidos
-                </button>
-              </>
-            )}
-          </div>
+              </div>
+              
+              <button
+                onClick={() => navigate('/buyer/orders')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Ver Meus Pedidos
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -482,156 +382,12 @@ export default function CheckoutPage() {
             )}
 
             {step === 'payment' && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Forma de Pagamento</h2>
-                
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center gap-2 text-red-700">
-                      <X className="h-5 w-5" />
-                      <span>{error}</span>
-                    </div>
-                  </div>
-                )}
-                
-                <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                  {/* Payment Methods */}
-                  <div className="space-y-3">
-                    {paymentMethods.filter(method => method.enabled).map(method => (
-                      <label
-                        key={method.id}
-                        className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
-                          selectedPaymentMethod.id === method.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={method.id}
-                          checked={selectedPaymentMethod.id === method.id}
-                          onChange={() => setSelectedPaymentMethod(method)}
-                          className="sr-only"
-                        />
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center gap-3">
-                            {getPaymentIcon(method.type)}
-                            <div>
-                              <p className="font-medium text-gray-900">{method.name}</p>
-                              <p className="text-sm text-gray-600">{method.processingTime}</p>
-                            </div>
-                          </div>
-                          {method.fee && method.fee > 0 && (
-                            <span className="text-sm text-gray-600">
-                              Taxa: R$ {method.fee.toFixed(2).replace('.', ',')}
-                            </span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  
-                  {/* Card Form */}
-                  {isCardPayment && (
-                    <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                      <h3 className="font-medium text-gray-900">Dados do Cartão</h3>
-                      
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Número do Cartão *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="0000 0000 0000 0000"
-                            value={cardData.number}
-                            onChange={(e) => setCardData(prev => ({ ...prev, number: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Nome no Cartão *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={cardData.holderName}
-                            onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Validade *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="MM/AA"
-                            value={cardData.expiryDate}
-                            onChange={(e) => setCardData(prev => ({ ...prev, expiryDate: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            CVV *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="000"
-                            value={cardData.cvv}
-                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                      
-                      {selectedPaymentMethod.type === 'credit_card' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Parcelas
-                          </label>
-                          <select
-                            value={installments}
-                            onChange={(e) => setInstallments(Number(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={num}>
-                                {num}x de R$ {(total / num).toFixed(2).replace('.', ',')} 
-                                {num === 1 ? ' à vista' : ` (Total: R$ ${total.toFixed(2).replace('.', ',')})`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <button
-                    type="submit"
-                    disabled={isProcessing}
-                    className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Processando...
-                      </>
-                    ) : (
-                      `Finalizar Compra - R$ ${total.toFixed(2).replace('.', ',')}`
-                    )}
-                  </button>
-                </form>
-              </div>
+              <PaymentForm
+                totalAmount={total * 100} // Converter para centavos
+                orderId={orderId}
+                onPaymentSuccess={handlePaymentSuccess}
+                onPaymentError={handlePaymentError}
+              />
             )}
           </div>
 
@@ -663,15 +419,9 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Frete:</span>
                   <span className="text-green-600">Grátis</span>
                 </div>
-                {selectedPaymentMethod.fee && selectedPaymentMethod.fee > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Taxa de pagamento:</span>
-                    <span className="text-gray-900">R$ {selectedPaymentMethod.fee.toFixed(2).replace('.', ',')}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-lg font-semibold pt-2 border-t">
                   <span>Total:</span>
-                  <span>R$ {(total + (selectedPaymentMethod.fee || 0)).toFixed(2).replace('.', ',')}</span>
+                  <span>R$ {total.toFixed(2).replace('.', ',')}</span>
                 </div>
               </div>
             </div>

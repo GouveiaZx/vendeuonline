@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
@@ -19,12 +19,16 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotificationStore } from '@/store/notificationStore';
 import Logo from '@/components/ui/Logo';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const { unreadCount, fetchNotifications } = useNotificationStore();
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -99,10 +103,17 @@ const Navbar = () => {
     }
   };
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated, fetchNotifications]);
+
   const handleLogout = () => {
     logout();
     setIsProfileOpen(false);
     setIsMenuOpen(false);
+    setIsNotificationOpen(false);
   };
 
   return (
@@ -157,12 +168,24 @@ const Navbar = () => {
           <div className="flex items-center space-x-2">
             {/* Notifications (apenas para usuários autenticados) */}
             {isAuthenticated && (
-              <button className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group">
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium">
-                  3
-                </span>
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                
+                <NotificationCenter 
+                  isOpen={isNotificationOpen}
+                  onClose={() => setIsNotificationOpen(false)}
+                />
+              </div>
             )}
 
             {/* Cart (apenas para compradores) */}

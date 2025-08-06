@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from '@/types/api';
 import { authMiddleware } from '@/lib/middleware';
 import { createPaymentSchema } from '@/lib/validation';
-import { createPreference } from '@/lib/mercadopago';
+import { createCustomer, createPixPayment, createCreditCardPayment, AsaasCustomer } from '@/lib/asaas';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
@@ -47,46 +47,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar preferência de pagamento no Mercado Pago
-    const preferenceData = {
-      items: [
-        {
-          id: plan.id,
-          title: `Plano ${plan.name} - Vendeu Online`,
-          description: `Assinatura mensal do plano ${plan.name}`,
-          unit_price: plan.price,
-          quantity: 1,
-          currency_id: 'BRL'
-        }
-      ],
-      payer: {
-        email: authResult.user.email
-      },
-      payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: paymentMethod === 'credit_card' ? 12 : 1
-      },
-      back_urls: {
-        success: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
-        failure: `${process.env.NEXT_PUBLIC_APP_URL}/payment/failure`,
-        pending: `${process.env.NEXT_PUBLIC_APP_URL}/payment/pending`
-      },
-      auto_return: 'approved' as 'approved',
-      external_reference: `subscription_${userId}_${planId}_${Date.now()}`,
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
-      metadata: {
-        user_id: userId,
-        plan_id: planId,
-        type: 'subscription'
-      }
+    // Criar cliente no Asaas
+    const customerData: AsaasCustomer = {
+      name: authResult.user.name || 'Cliente',
+      email: authResult.user.email,
+      cpfCnpj: '00000000000', // Em produção, coletar CPF do usuário
+      externalReference: `user_${userId}`
     };
 
-    const preference = await createPreference(preferenceData);
+    const customer = await createCustomer(customerData);
+    const externalReference = `subscription_${userId}_${planId}_${Date.now()}`;
 
-    if (!preference) {
+    // Criar pagamento baseado no método
+    let asaasPayment;
+    if (paymentMethod === 'pix') {
+      asaasPayment = await createPixPayment({
+        customerId: customer.id!,
+        amount: plan.price,
+        description: `Plano ${plan.name} - Vendeu Online`,
+        externalReference
+      });
+    } else if (paymentMethod === 'credit_card') {
+      // Para cartão de crédito, seria necessário coletar dados do cartão
+      // Por enquanto, retornamos erro
       return NextResponse.json(
-        { error: 'Erro ao criar preferência de pagamento' },
+        { error: 'Pagamento com cartão de crédito requer dados adicionais' },
+        { status: 400 }
+      );
+    } else {
+      return NextResponse.json(
+        { error: 'Método de pagamento não suportado' },
+        { status: 400 }
+      );
+    }
+
+    if (!asaasPayment) {
+      return NextResponse.json(
+        { error: 'Erro ao criar pagamento' },
         { status: 500 }
       );
     }
@@ -107,10 +104,12 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        preference_id: preference.id,
-        init_point: preference.init_point,
-        sandbox_init_point: preference.sandbox_init_point,
-        subscription_id: subscription.id
+        payment_id: asaasPayment.id,
+        payment_url: asaasPayment.invoiceUrl,
+        pix_code: asaasPayment.pixTransaction?.payload,
+        pix_qr_code: asaasPayment.pixTransaction?.encodedImage,
+        subscription_id: subscription.id,
+        external_reference: externalReference
       });
     } catch (subscriptionError) {
       console.error('Erro ao criar assinatura:', subscriptionError);

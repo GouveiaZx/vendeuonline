@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, DollarSign, Calendar, Crown, Star, Zap, Building, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlanStore, Plan } from '@/store/planStore';
+import { DeleteConfirmDialog, StatusChangeConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { LoadingButton, ContextLoading } from '@/components/ui/LoadingStates';
 
 export default function AdminPricingPage() {
   const { 
@@ -18,6 +20,9 @@ export default function AdminPricingPage() {
   
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; plan: Plan | null }>({ show: false, plan: null });
+  const [statusConfirm, setStatusConfirm] = useState<{ show: boolean; plan: Plan | null }>({ show: false, plan: null });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Carregar planos ao montar o componente
   useEffect(() => {
@@ -28,22 +33,28 @@ export default function AdminPricingPage() {
     const plan = plans.find(p => p.id === planId);
     if (!plan) return;
     
+    setActionLoading(planId);
     try {
       await updatePlan(planId, { isActive: !plan.isActive });
       toast.success('Status do plano atualizado');
+      setStatusConfirm({ show: false, plan: null });
     } catch (error) {
       toast.error('Erro ao atualizar status do plano');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleDelete = async (planId: string) => {
-    if (confirm('Tem certeza que deseja excluir este plano?')) {
-      try {
-        await deletePlan(planId);
-        toast.success('Plano excluído com sucesso');
-      } catch (error) {
-        toast.error('Erro ao excluir plano');
-      }
+    setActionLoading(planId);
+    try {
+      await deletePlan(planId);
+      toast.success('Plano excluído com sucesso');
+      setDeleteConfirm({ show: false, plan: null });
+    } catch (error) {
+      toast.error('Erro ao excluir plano');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -122,10 +133,10 @@ export default function AdminPricingPage() {
 
         {/* Loading State */}
         {loading && (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <span className="ml-3 text-gray-600">Carregando planos...</span>
-          </div>
+          <ContextLoading 
+            message="Carregando planos..."
+            icon={Crown}
+          />
         )}
 
         {/* Stats Cards */}
@@ -264,33 +275,40 @@ export default function AdminPricingPage() {
                 {/* Actions */}
                 <div className="flex justify-between items-center">
                   <div className="flex gap-2">
-                    <button 
+                    <LoadingButton
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setEditingPlan(plan)}
-                      className="text-blue-600 hover:text-blue-800 p-1"
+                      className="text-blue-600 hover:text-blue-800"
                       title="Editar"
                     >
                       <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(plan.id)}
-                      className="text-red-600 hover:text-red-800 p-1"
+                    </LoadingButton>
+                    <LoadingButton
+                      variant="ghost"
+                      size="sm"
+                      loading={actionLoading === plan.id}
+                      onClick={() => setDeleteConfirm({ show: true, plan })}
+                      className="text-red-600 hover:text-red-800"
                       title="Excluir"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </LoadingButton>
                   </div>
                   
-                  <button
-                    onClick={() => handleStatusToggle(plan.id)}
-                    disabled={loading}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50 ${
+                  <LoadingButton
+                    variant="ghost"
+                    size="sm"
+                    loading={actionLoading === plan.id}
+                    onClick={() => setStatusConfirm({ show: true, plan })}
+                    className={`px-3 py-1 rounded text-xs font-medium ${
                       plan.isActive 
                         ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                         : 'bg-green-100 text-green-700 hover:bg-green-200'
                     }`}
                   >
                     {plan.isActive ? 'Desativar' : 'Ativar'}
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>
@@ -333,6 +351,24 @@ export default function AdminPricingPage() {
             </div>
           </div>
         )}
+
+        {/* Confirmation Dialogs */}
+        <DeleteConfirmDialog
+           isOpen={deleteConfirm.show}
+           onClose={() => setDeleteConfirm({ show: false, plan: null })}
+           onConfirm={() => handleDelete(deleteConfirm.plan?.id)}
+           itemName={deleteConfirm.plan?.name || ''}
+           loading={actionLoading === deleteConfirm.plan?.id}
+         />
+
+        <StatusChangeConfirmDialog
+           isOpen={statusConfirm.show}
+           onClose={() => setStatusConfirm({ show: false, plan: null })}
+           onConfirm={() => handleStatusToggle(statusConfirm.plan?.id)}
+           itemName={statusConfirm.plan?.name || ''}
+           newStatus={statusConfirm.plan?.isActive ? 'inativo' : 'ativo'}
+           loading={actionLoading === statusConfirm.plan?.id}
+         />
       </div>
     </div>
   );

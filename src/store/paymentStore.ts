@@ -1,5 +1,13 @@
 import { create } from 'zustand';
 import { apiRequest } from '@/lib/api';
+import {
+  createCustomer,
+  createPixPayment,
+  createCreditCardPayment,
+  getPaymentStatus as getAsaasPayment,
+  AsaasCustomer,
+  AsaasPaymentResponse
+} from '@/lib/asaas';
 
 export interface PaymentMethod {
   id: string;
@@ -95,30 +103,102 @@ export const usePaymentStore = create<PaymentStore>((set, get) => ({
     set({ isProcessing: true, error: null });
     
     try {
-      const response = await apiRequest('/api/payment/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          orderId,
-          paymentMethod: paymentData.method.type.toUpperCase(),
+      // Primeiro, criar ou obter cliente no Asaas
+      let customerId: string;
+      
+      if (paymentData.method.type === 'pix' && paymentData.pixData) {
+        const customerData: AsaasCustomer = {
+          name: 'Cliente Marketplace',
+          email: paymentData.pixData.email,
+          cpfCnpj: paymentData.pixData.cpf,
+          externalReference: orderId
+        };
+        
+        const customer = await createCustomer(customerData);
+        customerId = customer.id!;
+      } else if (paymentData.cardData) {
+        const customerData: AsaasCustomer = {
+          name: paymentData.cardData.holderName,
+          email: 'cliente@marketplace.com', // Seria obtido do contexto do usuário
+          cpfCnpj: paymentData.cardData.cpf,
+          externalReference: orderId
+        };
+        
+        const customer = await createCustomer(customerData);
+        customerId = customer.id!;
+      } else {
+        throw new Error('Dados de pagamento inválidos');
+      }
+
+      let asaasPayment: AsaasPaymentResponse | null;
+
+      // Criar pagamento baseado no método
+      if (paymentData.method.type === 'pix') {
+        asaasPayment = await createPixPayment({
+          customerId,
           amount: paymentData.amount,
-          installments: paymentData.installments,
-          cardData: paymentData.cardData,
-          pixData: paymentData.pixData
-        })
-      });
+          description: `Pedido #${orderId} - Marketplace`,
+          externalReference: orderId
+        });
+      } else if (paymentData.method.type === 'credit_card' && paymentData.cardData) {
+        asaasPayment = await createCreditCardPayment({
+          customerId,
+          amount: paymentData.amount,
+          description: `Pedido #${orderId} - Marketplace`,
+          externalReference: orderId,
+          installmentCount: paymentData.installments || 1,
+          creditCard: {
+            holderName: paymentData.cardData.holderName,
+            number: paymentData.cardData.number,
+            expiryMonth: paymentData.cardData.expiryDate.split('/')[0],
+            expiryYear: paymentData.cardData.expiryDate.split('/')[1],
+            ccv: paymentData.cardData.cvv
+          },
+          creditCardHolderInfo: {
+            name: paymentData.cardData.holderName,
+            email: 'cliente@marketplace.com',
+            cpfCnpj: paymentData.cardData.cpf,
+            postalCode: '99700000',
+            addressNumber: '123',
+            phone: '5454999999999'
+          }
+        });
+      } else {
+        throw new Error('Método de pagamento não suportado');
+      }
+
+      if (!asaasPayment) {
+        throw new Error('Falha ao criar pagamento no Asaas');
+      }
+
+      // Mapear status do Asaas para status interno
+      const mapAsaasStatus = (status: string): Payment['status'] => {
+         switch (status) {
+           case 'PENDING':
+             return 'pending';
+           case 'RECEIVED':
+           case 'CONFIRMED':
+             return 'approved';
+           case 'OVERDUE':
+           case 'REFUNDED':
+             return 'rejected';
+           default:
+             return 'pending';
+         }
+       };
 
       const payment: Payment = {
-        id: response.data.id,
+        id: asaasPayment.id,
         orderId,
         amount: paymentData.amount,
         method: paymentData.method,
-        status: response.data.status,
-        createdAt: new Date(response.data.createdAt),
-        updatedAt: new Date(response.data.updatedAt),
-        transactionId: response.data.transactionId,
-        pixCode: response.data.pixCode,
-        pixQrCode: response.data.pixQrCode,
-        expiresAt: response.data.expiresAt ? new Date(response.data.expiresAt) : undefined
+        status: mapAsaasStatus(asaasPayment.status),
+        createdAt: new Date(asaasPayment.dateCreated),
+        updatedAt: new Date(asaasPayment.dateCreated),
+        transactionId: asaasPayment.id,
+        pixCode: asaasPayment.pixTransaction?.payload,
+        pixQrCode: asaasPayment.pixTransaction?.encodedImage ? `data:image/png;base64,${asaasPayment.pixTransaction.encodedImage}` : undefined,
+        expiresAt: asaasPayment.pixTransaction?.expirationDate ? new Date(asaasPayment.pixTransaction.expirationDate) : undefined
       };
 
       set(state => ({
@@ -131,7 +211,7 @@ export const usePaymentStore = create<PaymentStore>((set, get) => ({
     } catch (error: any) {
       console.error('Erro ao criar pagamento:', error);
       set({ 
-        error: 'Erro ao criar pagamento', 
+        error: error.message || 'Erro ao criar pagamento', 
         isProcessing: false 
       });
       throw error;
@@ -179,12 +259,35 @@ export const usePaymentStore = create<PaymentStore>((set, get) => ({
   getPaymentStatus: async (paymentId: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiRequest(`/api/payment/${paymentId}/status`);
+      const asaasPayment = await getAsaasPayment(paymentId);
+      
+      if (!asaasPayment) {
+        throw new Error('Pagamento não encontrado');
+      }
+
+      // Mapear status do Asaas para status interno
+      const mapAsaasStatus = (status: string): Payment['status'] => {
+         switch (status) {
+           case 'PENDING':
+             return 'pending';
+           case 'RECEIVED':
+           case 'CONFIRMED':
+             return 'approved';
+           case 'OVERDUE':
+           case 'REFUNDED':
+             return 'rejected';
+           default:
+             return 'pending';
+         }
+       };
       
       // Atualizar o pagamento com o status mais recente
       const updatedPayment = {
-        ...response.data.payment,
-        updatedAt: new Date()
+        status: mapAsaasStatus(asaasPayment.status),
+        updatedAt: new Date(),
+        pixCode: asaasPayment.pixTransaction?.payload,
+        pixQrCode: asaasPayment.pixTransaction?.encodedImage ? `data:image/png;base64,${asaasPayment.pixTransaction.encodedImage}` : undefined,
+        expiresAt: asaasPayment.pixTransaction?.expirationDate ? new Date(asaasPayment.pixTransaction.expirationDate) : undefined
       };
       
       set(state => ({

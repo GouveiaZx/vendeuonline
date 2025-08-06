@@ -1,125 +1,77 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { 
-  ImageIcon, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
-  ExternalLink, 
+import React, { useState, useEffect } from 'react';
+import { useBannerStore } from '@/store/bannerStore';
+import { Banner } from '@/store/bannerStore';
+import BannerForm from '@/components/banners/BannerForm';
+import { toast } from 'sonner';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  ImageIcon,
+  ExternalLink,
   Calendar,
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface Banner {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  targetUrl: string;
-  position: 'HEADER' | 'SIDEBAR' | 'FOOTER' | 'CATEGORY';
-  isActive: boolean;
-  startDate: string;
-  endDate: string;
-  clicks: number;
-  impressions: number;
-  createdAt: string;
-}
+import { DeleteConfirmDialog, StatusChangeConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { LoadingButton, ContextLoading } from '@/components/ui/LoadingStates';
 
 export default function BannersPage() {
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { banners, loading, error, fetchBanners, deleteBanner, toggleBannerStatus } = useBannerStore();
   const [showForm, setShowForm] = useState(false);
-  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; banner: Banner | null }>({ show: false, banner: null });
+  const [statusConfirm, setStatusConfirm] = useState<{ show: boolean; banner: Banner | null }>({ show: false, banner: null });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBanners();
-  }, []);
+  }, [fetchBanners]);
 
-  const fetchBanners = async () => {
+  const handleToggleStatus = async (bannerId: string) => {
+    setActionLoading(bannerId);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Tentar buscar da API real primeiro
-      const response = await fetch('/api/admin/banners');
-      
-      if (response.ok) {
-        const data = await response.json();
-        setBanners(data.banners || []);
-      } else {
-        // Fallback para dados simulados mínimos
-        setBanners([
-          {
-            id: '1',
-            title: 'Banner Principal',
-            description: 'Banner de exemplo',
-            imageUrl: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20banner%20design&image_size=landscape_16_9',
-            targetUrl: '/products',
-            position: 'HEADER',
-            isActive: true,
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            clicks: 0,
-            impressions: 0,
-            createdAt: new Date().toISOString()
-          }
-        ]);
-      }
-    } catch (err) {
-      setError('Erro ao carregar banners');
-      console.error('Erro ao buscar banners:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusToggle = async (bannerId: string) => {
-    try {
-      const response = await fetch(`/api/admin/banners/${bannerId}/toggle`, {
-        method: 'PATCH'
-      });
-      
-      if (response.ok) {
-        setBanners(prev => prev.map(banner => 
-          banner.id === bannerId 
-            ? { ...banner, isActive: !banner.isActive }
-            : banner
-        ));
-        toast.success('Status do banner atualizado');
-      } else {
-        throw new Error('Erro ao atualizar status');
-      }
-    } catch (err) {
+      await toggleBannerStatus(bannerId);
+      toast.success('Status do banner atualizado!');
+      setStatusConfirm({ show: false, banner: null });
+    } catch (error) {
       toast.error('Erro ao atualizar status do banner');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleDelete = async (bannerId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este banner?')) return;
-    
+    setActionLoading(bannerId);
     try {
-      const response = await fetch(`/api/admin/banners/${bannerId}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        setBanners(prev => prev.filter(banner => banner.id !== bannerId));
-        toast.success('Banner excluído com sucesso');
-      } else {
-        throw new Error('Erro ao excluir banner');
-      }
-    } catch (err) {
+      await deleteBanner(bannerId);
+      toast.success('Banner excluído com sucesso!');
+      setDeleteConfirm({ show: false, banner: null });
+    } catch (error) {
       toast.error('Erro ao excluir banner');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const clearError = () => setError(null);
+  const handleCreate = () => {
+    setSelectedBanner(null);
+    setShowForm(true);
+  };
+
+  const handleEdit = (banner: Banner) => {
+    setSelectedBanner(banner);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedBanner(null);
+  };
 
   const getStatusBadge = (banner: Banner) => {
     const now = new Date();
@@ -164,10 +116,7 @@ export default function BannersPage() {
                 <p className="text-red-600 text-sm mt-1">{error}</p>
               </div>
               <button
-                onClick={() => {
-                  clearError();
-                  fetchBanners();
-                }}
+                onClick={() => fetchBanners()}
                 className="ml-auto bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
               >
                 Tentar novamente
@@ -178,10 +127,7 @@ export default function BannersPage() {
 
         {/* Loading State */}
         {loading && (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <span className="ml-3 text-gray-600">Carregando banners...</span>
-          </div>
+          <ContextLoading type="products" message="Carregando banners..." />
         )}
 
         {/* Header */}
@@ -191,7 +137,7 @@ export default function BannersPage() {
             <p className="text-gray-600">Gerencie banners publicitários da plataforma</p>
           </div>
           <button 
-            onClick={() => setShowForm(true)}
+            onClick={handleCreate}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -312,24 +258,32 @@ export default function BannersPage() {
                   <div className="flex justify-between items-center">
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => setEditingBanner(banner)}
+                        onClick={() => handleEdit(banner)}
                         className="text-blue-600 hover:text-blue-800 p-1"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button 
-                        onClick={() => handleStatusToggle(banner.id)}
-                        disabled={loading}
+                        onClick={() => setStatusConfirm({ show: true, banner })}
+                        disabled={loading || actionLoading === banner.id}
                         className="text-green-600 hover:text-green-800 p-1 disabled:opacity-50"
                       >
-                        {banner.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {actionLoading === banner.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          banner.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />
+                        )}
                       </button>
                       <button 
-                        onClick={() => handleDelete(banner.id)}
-                        disabled={loading}
+                        onClick={() => setDeleteConfirm({ show: true, banner })}
+                        disabled={loading || actionLoading === banner.id}
                         className="text-red-600 hover:text-red-800 p-1 disabled:opacity-50"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {actionLoading === banner.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     
@@ -352,7 +306,7 @@ export default function BannersPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum banner encontrado</h3>
             <p className="text-gray-500 mb-4">Comece criando seu primeiro banner publicitário</p>
             <button 
-              onClick={() => setShowForm(true)}
+              onClick={handleCreate}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Criar Banner
@@ -360,26 +314,33 @@ export default function BannersPage() {
           </div>
         )}
 
-        {/* Form Modal Placeholder */}
+        {/* Banner Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">Novo Banner</h2>
-              <p className="text-gray-600 mb-4">Formulário de criação de banner será implementado aqui.</p>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Salvar
-                </button>
-              </div>
-            </div>
-          </div>
+          <BannerForm
+            isOpen={showForm}
+            onClose={handleCloseForm}
+            banner={selectedBanner}
+          />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmDialog
+          isOpen={deleteConfirm.show}
+          onClose={() => setDeleteConfirm({ show: false, banner: null })}
+          onConfirm={() => deleteConfirm.banner && handleDelete(deleteConfirm.banner.id)}
+          itemName={deleteConfirm.banner?.title || ''}
+          loading={actionLoading === deleteConfirm.banner?.id}
+        />
+
+        {/* Status Change Confirmation Dialog */}
+        <StatusChangeConfirmDialog
+          isOpen={statusConfirm.show}
+          onClose={() => setStatusConfirm({ show: false, banner: null })}
+          onConfirm={() => statusConfirm.banner && handleToggleStatus(statusConfirm.banner.id)}
+          itemName={statusConfirm.banner?.title || ''}
+          newStatus={statusConfirm.banner?.isActive ? 'inativo' : 'ativo'}
+          loading={actionLoading === statusConfirm.banner?.id}
+        />
       </div>
     </div>
   );

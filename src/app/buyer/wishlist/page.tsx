@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Heart, ShoppingCart, Share2, Grid, List, Star, Filter, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import ProductCard from '@/components/ui/ProductCard';
 
 interface WishlistItem {
   id: string;
@@ -49,7 +50,7 @@ export default function WishlistPage() {
             id: '1',
             productId: 'prod-1',
             name: 'Produto Exemplo',
-            image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=product%20example&image_size=square',
+            image: 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=produto%20exemplo&image_size=square',
             price: 99.90,
             originalPrice: 149.90,
             seller: 'Vendedor Exemplo',

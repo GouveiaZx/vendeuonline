@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, UserPlus, Edit, Trash2, CheckCircle, XCircle, Shield, Store, User, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserStore } from '@/store/userStore';
+import { DeleteConfirmDialog, StatusChangeConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { LoadingButton, ContextLoading, LoadingTable } from '@/components/ui/LoadingStates';
 
 export default function AdminUsersPage() {
   const {
@@ -17,6 +19,9 @@ export default function AdminUsersPage() {
     setFilters,
     clearError
   } = useUserStore();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; user: any | null }>({ show: false, user: null });
+  const [statusConfirm, setStatusConfirm] = useState<{ show: boolean; user: any | null; newStatus: string }>({ show: false, user: null, newStatus: '' });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Carregar usuários ao montar o componente
   useEffect(() => {
@@ -33,22 +38,28 @@ export default function AdminUsersPage() {
   });
 
   const handleStatusChange = async (userId: string, newStatus: 'active' | 'inactive') => {
+    setActionLoading(userId);
     try {
       await updateUserStatus(userId, newStatus);
       toast.success(`Status do usuário atualizado para ${newStatus === 'active' ? 'ativo' : 'inativo'}`);
+      setStatusConfirm({ show: false, user: null, newStatus: '' });
     } catch (error) {
       toast.error('Erro ao atualizar status do usuário');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
-      try {
-        await deleteUser(userId);
-        toast.success('Usuário excluído com sucesso');
-      } catch (error) {
-        toast.error('Erro ao excluir usuário');
-      }
+    setActionLoading(userId);
+    try {
+      await deleteUser(userId);
+      toast.success('Usuário excluído com sucesso');
+      setDeleteConfirm({ show: false, user: null });
+    } catch (error) {
+      toast.error('Erro ao excluir usuário');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -173,54 +184,50 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estatísticas
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Último Login
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading && (
+        {loading ? (
+          <LoadingTable 
+            columns={6} 
+            rows={5}
+          />
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
-                      <div className="flex justify-center items-center space-x-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-                        <span className="text-gray-600">Carregando usuários...</span>
-                      </div>
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Usuário
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tipo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Estatísticas
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Último Login
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
                   </tr>
-                )}
-                {!loading && filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
-                      <div className="text-gray-500">
-                        <User className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                        <p className="text-lg font-medium mb-2">Nenhum usuário encontrado</p>
-                        <p className="text-sm">Tente ajustar os filtros de busca</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {!loading && filteredUsers.map((user) => (
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          <User className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-lg font-medium mb-2">Nenhum usuário encontrado</p>
+                          <p className="text-sm">Tente ajustar os filtros de busca</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -259,38 +266,37 @@ export default function AdminUsersPage() {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        {user.status === 'active' ? (
-                          <button 
-                            onClick={() => handleStatusChange(user.id, 'inactive')}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={loading}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => handleStatusChange(user.id, 'active')}
-                            className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={loading}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={loading}
+                        <LoadingButton
+                          variant="ghost"
+                          size="sm"
+                          loading={actionLoading === user.id}
+                          onClick={() => setStatusConfirm({ 
+                            show: true, 
+                            user, 
+                            newStatus: user.status === 'active' ? 'inactive' : 'active' 
+                          })}
+                          className={user.status === 'active' ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
+                        >
+                          {user.status === 'active' ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                        </LoadingButton>
+                        <LoadingButton
+                          variant="ghost"
+                          size="sm"
+                          loading={actionLoading === user.id}
+                          onClick={() => setDeleteConfirm({ show: true, user })}
+                          className="text-red-600 hover:text-red-900"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </LoadingButton>
                       </div>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
@@ -349,6 +355,24 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialogs */}
+      <DeleteConfirmDialog
+        isOpen={deleteConfirm.show}
+        onClose={() => setDeleteConfirm({ show: false, user: null })}
+        onConfirm={() => handleDeleteUser(deleteConfirm.user?.id)}
+        itemName={deleteConfirm.user?.name || ''}
+        loading={actionLoading === deleteConfirm.user?.id}
+      />
+
+      <StatusChangeConfirmDialog
+        isOpen={statusConfirm.show}
+        onClose={() => setStatusConfirm({ show: false, user: null, newStatus: '' })}
+        onConfirm={() => handleStatusChange(statusConfirm.user?.id, statusConfirm.newStatus as 'active' | 'inactive')}
+        itemName={statusConfirm.user?.name || ''}
+        newStatus={statusConfirm.newStatus === 'active' ? 'ativo' : 'inativo'}
+        loading={actionLoading === statusConfirm.user?.id}
+      />
     </div>
   );
 }

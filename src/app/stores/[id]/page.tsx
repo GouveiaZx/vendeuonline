@@ -5,6 +5,8 @@ import { Star, MapPin, Phone, Mail, MessageCircle, Package, Users, Calendar, Shi
 import { useStoreStore } from '@/stores/storeStore';
 import { useProductStore } from '@/store/productStore';
 import { Link } from 'react-router-dom';
+import OptimizedImage from '@/components/ui/OptimizedImage';
+import ProductCard from '@/components/ui/ProductCard';
 
 
 
@@ -140,10 +142,11 @@ export default function StorePage({ params }: { params: { id: string } }) {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-6">
               <div className="w-24 h-24 bg-white rounded-2xl p-2 shadow-lg">
-                <img
-                  src={currentStore.logo || 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=store_logo_placeholder&image_size=square'}
+                <OptimizedImage
+                  src={currentStore.logo}
                   alt={currentStore.name}
                   className="w-full h-full object-cover rounded-xl"
+                  fallbackSrc={`https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent('store logo ' + currentStore.category)}&image_size=square`}
                 />
               </div>
               
@@ -382,59 +385,13 @@ export default function StorePage({ params }: { params: { id: string } }) {
                             : 'space-y-4'
                           }>
                             {filteredProducts.map((product) => (
-                              <Link key={product.id} to={`/products/${product.id}`}>
-                                <div className={`bg-gray-50 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer ${
-                                  viewMode === 'list' ? 'flex' : ''
-                                }`}>
-                                  <div className={viewMode === 'list' ? 'w-32 flex-shrink-0' : ''}>
-                                    <img
-                                      src={product.images?.[0] || product.image || 'https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=product_placeholder&image_size=square'}
-                                      alt={product.name}
-                                      className={`w-full object-cover ${
-                                        viewMode === 'list' ? 'h-full' : 'h-48'
-                                      }`}
-                                    />
-                                  </div>
-                                  
-                                  <div className="p-4 flex-1">
-                                    <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                                      {product.name}
-                                    </h4>
-                                    
-                                    <div className="flex items-center space-x-2 mb-2">
-                                      <div className="flex items-center space-x-1">
-                                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                                        <span className="text-sm font-medium">{product.averageRating?.toFixed(1) || '0.0'}</span>
-                                        <span className="text-sm text-gray-500">({product.reviewCount || 0})</span>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <div className="flex items-center space-x-2">
-                                          <span className="text-lg font-bold text-blue-600">
-                                            R$ {product.price.toFixed(2)}
-                                          </span>
-                                          {product.originalPrice && product.originalPrice > product.price && (
-                                            <span className="text-sm text-gray-500 line-through">
-                                              R$ {product.originalPrice.toFixed(2)}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <span className={`text-xs ${
-                                          product.stock > 0 ? 'text-green-600' : 'text-red-600'
-                                        }`}>
-                                          {product.stock > 0 ? `${product.stock} em estoque` : 'Fora de estoque'}
-                                        </span>
-                                      </div>
-                                      
-                                      <button className="p-2 text-gray-400 hover:text-red-500 transition-colors">
-                                        <Heart className="h-5 w-5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </Link>
+                              <ProductCard
+                                key={product.id}
+                                product={{
+                                  ...product,
+                                  category: product.category || 'geral'
+                                }}
+                              />
                             ))}
                           </div>
 

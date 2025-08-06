@@ -82,13 +82,21 @@ export default function CheckoutForm({ items, onPaymentSuccess, onPaymentError }
 
     setLoading(true);
     try {
-      const externalReference = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const paymentData = {
-        items,
-        payer: payerData,
-        paymentMethod,
-        externalReference
+        orderId,
+        paymentMethod: paymentMethod.toUpperCase(),
+        amount: totalAmount,
+        pixData: paymentMethod === 'pix' ? {
+          email: payerData.email,
+          cpf: '00000000000' // Em produção, coletar CPF do usuário
+        } : undefined,
+        customerData: {
+          name: `${payerData.first_name} ${payerData.last_name}`,
+          email: payerData.email,
+          phone: '5454999999999' // Em produção, coletar telefone do usuário
+        }
       };
 
       const response = await fetch('/api/payments/create', {
@@ -106,13 +114,12 @@ export default function CheckoutForm({ items, onPaymentSuccess, onPaymentError }
       }
 
       if (paymentMethod === 'pix') {
-        setPixData(result.payment);
+        setPixData(result.data);
         toast.success('PIX gerado com sucesso!');
       } else {
-        // Redirecionar para o Mercado Pago
-        if (result.preference?.init_point) {
-          window.location.href = result.preference.init_point;
-        }
+        // Para cartão de crédito, mostrar sucesso ou redirecionar
+        toast.success('Pagamento processado com sucesso!');
+        onPaymentSuccess?.(result);
       }
 
       onPaymentSuccess?.(result);
@@ -127,8 +134,8 @@ export default function CheckoutForm({ items, onPaymentSuccess, onPaymentError }
   };
 
   const copyPixCode = () => {
-    if (pixData?.qr_code) {
-      navigator.clipboard.writeText(pixData.qr_code);
+    if (pixData?.pixCode) {
+      navigator.clipboard.writeText(pixData.pixCode);
       toast.success('Código PIX copiado!');
     }
   };
@@ -148,12 +155,12 @@ export default function CheckoutForm({ items, onPaymentSuccess, onPaymentError }
               Escaneie o QR Code ou copie o código PIX
             </p>
             
-            {pixData.qr_code_base64 && (
+            {pixData.pixQrCode && (
               <div className="mb-4">
                 <img 
-                  src={`data:image/png;base64,${pixData.qr_code_base64}`}
+                  src={pixData.pixQrCode}
                   alt="QR Code PIX"
-                  className="mx-auto border rounded"
+                  className="mx-auto border rounded w-48 h-48"
                 />
               </div>
             )}
