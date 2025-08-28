@@ -1,0 +1,70 @@
+{
+  "root": true,
+  "extends": [
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
+    "next/core-web-vitals"
+  ],
+  "plugins": ["@typescript-eslint", "react-hooks", "react-refresh"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "prefer-rest-params": "off",
+    "no-useless-escape": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "import/no-anonymous-default-export": "off",
+     "@typescript-eslint/no-empty-object-type": "off",
+     "@typescript-eslint/no-require-imports": "off",
+     "@typescript-eslint/no-var-requires": "off",
+     "@next/next/no-img-element": "off",
+     "react/no-unescaped-entities": "off",
+     "@next/next/no-html-link-for-pages": "off",
+     "jsx-a11y/alt-text": "off",
+    "no-unused-vars": "off",
+    // Anti-duplication rules
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@/utils/supabase",
+            "message": "Use '@/lib/supabase' instead - single source of truth for Supabase config"
+          },
+          {
+            "name": "@/lib/analytics",
+            "message": "Use '@/lib/analytics-consolidated' instead - single source of truth for analytics"
+          },
+          {
+            "name": "@/utils/rateLimiting",
+            "message": "Use '@/lib/rateLimiting' instead - single source of truth for rate limiting"
+          },
+          {
+            "name": "@/services/auth",
+            "message": "Use '@/lib/auth' instead - single source of truth for authentication"
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["@/types/*"],
+            "message": "Import types from '@/types' directly - all types are centralized"
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/store/**/*.ts", "src/stores/**/*.ts", "src/utils/**/*.ts"],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/__tests__/**/*.ts", "src/__tests__/**/*.tsx"],
+      "rules": {
+        "@typescript-eslint/ban-ts-comment": "off"
+      }
+    }
+  ]
+}
